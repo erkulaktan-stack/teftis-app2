@@ -1,41 +1,38 @@
 import flet as ft
 import openpyxl
-from openpyxl import load_workbook
+from openpyxl import Workbook
 from openpyxl.drawing.image import Image as OpenpyxlImage
 import os
-import shutil
 
 def main(page: ft.Page):
     page.title = "ÖZDEMİRTEKS Tablet Teftiş Paneli"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.scroll = ft.ScrollMode.AUTO
     
-    # Android'in uygulamaya özel olarak ayırdığı, %100 izin gerektirmeyen güvenli klasör yolu
-    # Bu sayede uygulama izin hatası alıp beyaz ekranda kilitlenmeyecek.
-    uygulama_ozel_dizini = os.getcwd() 
-    sablon_yolu = os.path.join(uygulama_ozel_dizini, "INSPECTION REPORT.xlsx")
+    page.window_width = 850
+    page.window_height = 850
     
-    # --- ACİL DURUM EKRANI (ŞABLON KONTROLÜ) ---
-    # Eğer şablon dosyasını uygulamanın içine henüz yüklemediysek kullanıcıyı uyaralım
-    if not os.path.exists(sablon_yolu):
-        page.add(
-            ft.Container(
-                content=ft.Column([
-                    ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color=ft.Colors.RED_700, size=50),
-                    ft.Text("SİSTEM HAZIRLIK AŞAMASINDA", size=20, weight=ft.FontWeight.BOLD),
-                    ft.Text(
-                        "Uygulama beyaz ekran vermeden başarıyla başladı!\n\n"
-                        "Ancak rapor üretebilmek için bilgisayarındaki 'INSPECTION REPORT.xlsx' "
-                        "dosyasını GitHub'daki projenin ana dizinine (main.py'nin yanına) yüklemen gerekiyor.\n"
-                        "Yükledikten sonra yeni bir APK ürettiğinde sistem tamamen aktif olacaktır.",
-                        text_align=ft.TextAlign.CENTER, size=14
-                    )
-                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, alignment=ft.MainAxisAlignment.CENTER),
-                padding=30, alignment=ft.alignment.center
-            )
-        )
-        page.update()
-        return
+    # Android'in her uygulamaya koşulsuz şartsız izin verdiği iç depolama klasörü
+    uygulama_klasoru = os.getcwd()
+    rapor_yolu = os.path.join(uygulama_klasoru, "DENETIM_RAPORU_SABLON.xlsx")
+
+    # --- SIFIRDAN EXCEL OLUŞTURMA MOTORU ---
+    # Eğer içeride şablon yoksa, uygulama hata vermek yerine sekmeleri kendi oluşturur!
+    if not os.path.exists(rapor_yolu):
+        wb = Workbook()
+        # 1. Sekme
+        ws1 = wb.active
+        ws1.title = "AQL - PAPERWORK COPY"
+        # Başlıkları dolduruyoruz ki şablon gibi dursun
+        ws1["A1"] = "ÖZDEMİRTEKS DENETİM RAPORU"
+        
+        # 2. Sekme
+        wb.create_sheet(title="AQL MEASUREMENT CHART COPY")
+        
+        # 3. Sekme
+        wb.create_sheet(title="Photos - AQL COPY")
+        
+        wb.save(rapor_yolu)
 
     # --- SAYAÇLAR ---
     sayaclar = {"major": 0, "minor": 0}
@@ -55,8 +52,6 @@ def main(page: ft.Page):
     secilen_resimler = {
         "olcu_xs": None, "olcu_s": None, "olcu_m": None, "olcu_l": None, "olcu_xl": None, "olcu_xxl": None,
         "minor_img": None, "major_img": None, "onden": None, "arkadan": None, "paketli_on": None, "paketli_arka": None,
-        "sirali_acik": None, "tek_acik": None, "kapali_sirali": None, "xs_img": None, "s_img": None, "m_img": None,
-        "l_img": None, "xl_img": None, "xxl_img": None
     }
 
     onizleme_yazilari = {k: ft.Text("Seçilmedi", size=12, italic=True, color=ft.Colors.GREY_600) for k in secilen_resimler.keys()}
@@ -93,20 +88,19 @@ def main(page: ft.Page):
             onizleme_yazilari[kategori]
         ], alignment=ft.MainAxisAlignment.START, spacing=10)
 
-    # --- INPUT ALANLARI VE FORM ELEMANLARI ---
-    brand_dropdown = ft.Dropdown(label="Marka (Brand)", options=[ft.dropdown.Option("JD SPORT"), ft.dropdown.Option("Gymking"), ft.dropdown.Option("Marshall")], value="JD SPORT", width=330)
+    # --- TEXT INPUT ALANLARI ---
+    brand_dropdown = ft.Dropdown(label="Marka (Brand)", options=[ft.dropdown.Option("JD SPORT"), ft.dropdown.Option("Gymking")], value="JD SPORT", width=330)
     supplier_input = ft.TextField(label="Tedarikçi (Supplier)", value="OZDEMIRTEKS TEKSTIL", width=330)
     factory_input = ft.TextField(label="Fabrika (Factory)", value="OZDEMIRTEKS TEKSTIL", width=330)
     inspector_input = ft.TextField(label="Denetçi (Checked by)", value="Merdali Mete", width=330)
-    po_input = ft.TextField(label="PO Numarası", value="none", width=330)
+    po_input = ft.TextField(label="PO Numarası", value="123456", width=330)
     style_name_input = ft.TextField(label="Stil Adı (Style Name)", value="JD SPORT", width=330)
     style_num_input = ft.TextField(label="Stil No (Style Number)", value="none", width=330)
-    order_qty_input = ft.TextField(label="Sipariş Miktarı (Order Qty)", value="2688", width=330)
-    shipped_qty_input = ft.TextField(label="Sevk Miktarı (Shipped Qty)", value="2688", width=330)
-    colour_input = ft.TextField(label="Renk (Colour)", value="none", width=330)
+    order_qty_input = ft.TextField(label="Sipariş Miktarı", value="2688", width=330)
+    colour_input = ft.TextField(label="Renk (Colour)", value="Siyah", width=330)
 
     form_sol = ft.Column([brand_dropdown, supplier_input, factory_input, inspector_input, colour_input])
-    form_sag = ft.Column([po_input, style_name_input, style_num_input, order_qty_input, shipped_qty_input])
+    form_sag = ft.Column([po_input, style_name_input, style_num_input, order_qty_input])
 
     def ekrani_degistir(e):
         ekran_1.visible = False
@@ -133,64 +127,56 @@ def main(page: ft.Page):
 
     bilgi_notu = ft.Text(value="", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700)
 
-    def orjinal_excele_kaydet(e):
-        cikti_yolu = os.path.join(uygulama_ozel_dizini, f"OZDEMIRTEKS_TEFTIS_RAPORU_PO_{po_input.value}.xlsx")
+    def excele_raporu_yaz(e):
+        # Çıktıyı uygulamanın kendi izinli klasörüne doğrudan kaydeder
+        cikti_yolu = os.path.join(uygulama_klasoru, f"TEFTIS_RAPORU_PO_{po_input.value}.xlsx")
         
         try:
-            bilgi_notu.value = "Rapor hazırlanıyor, fotoğraflar işleniyor..."
-            bilgi_notu.color = ft.Colors.BLUE_700
+            bilgi_notu.value = "Rapor Excel'e yazılıyor..."
             page.update()
 
-            shutil.copy(sablon_yolu, cikti_yolu)
-            wb = load_workbook(cikti_yolu)
+            wb = load_workbook(rapor_yolu)
+            ws1 = wb["AQL - PAPERWORK COPY"]
             
-            def sekme_bul(isim):
-                for s in wb.sheetnames:
-                    if s.strip().upper() == isim.strip().upper(): return s
-                return None
+            # Form verilerini hücrelere yazma
+            ws1["A10"] = f"PO: {po_input.value}"
+            ws1["A11"] = f"STYLE NAME: {style_name_input.value}"
+            ws1["A12"] = f"STYLE NUMBER: {style_num_input.value}"
+            ws1["A13"] = f"SUPPLIER: {supplier_input.value}"
+            ws1["A14"] = f"FACTORY: {factory_input.value}"
+            ws1["A15"] = f"Checked by: {inspector_input.value}"
+            ws1["E9"] = sayaclar["major"]
+            ws1["F9"] = sayaclar["minor"]
 
-            paperwork_sekme = sekme_bul("AQL - PAPERWORK COPY")
-            if paperwork_sekme:
-                ws1 = wb[paperwork_sekme]
-                ws1["A10"] = f"PO: {po_input.value}"
-                ws1["A11"] = f"STYLE NAME:  {style_name_input.value}"
-                ws1["A12"] = f"STYLE NUMBER:{style_num_input.value}"
-                ws1["A13"] = f"SUPPLIER: {supplier_input.value}"
-                ws1["A14"] = f"FACTORY: {factory_input.value}"
-                ws1["A15"] = f"Checked by: {inspector_input.value}"
-                ws1["D12"] = int(order_qty_input.value) if order_qty_input.value.isdigit() else order_qty_input.value
-                ws1["E9"] = sayaclar["major"]
-                ws1["F9"] = sayaclar["minor"]
-                ws1["A16"] = f"COLOUR: {colour_input.value}"
-                ws1["D13"] = int(shipped_qty_input.value) if shipped_qty_input.value.isdigit() else shipped_qty_input.value  
-
+            # Resimleri Ekleme Haritası
             resim_haritasi = [
-                ("olcu_xs", "AQL MEASUREMENT CHART COPY", "A7"), ("olcu_s", "AQL MEASUREMENT CHART COPY", "P7"),
-                ("minor_img", "Photos - AQL COPY", "C3"), ("major_img", "Photos - AQL COPY", "I3"),
-                ("onden", "Photos - AQL COPY", "B20"), ("arkadan", "Photos - AQL COPY", "C20"),
-                ("paketli_on", "Photos - AQL COPY", "I20"), ("paketli_arka", "Photos - AQL COPY", "O20"),
-                ("sirali_acik", "Photos - AQL COPY", "B38")
+                ("olcu_xs", "AQL MEASUREMENT CHART COPY", "A7"),
+                ("olcu_s", "AQL MEASUREMENT CHART COPY", "P7"),
+                ("minor_img", "Photos - AQL COPY", "C3"),
+                ("major_img", "Photos - AQL COPY", "I3"),
+                ("onden", "Photos - AQL COPY", "B20"),
+                ("arkadan", "Photos - AQL COPY", "C20"),
+                ("paketli_on", "Photos - AQL COPY", "I20"),
+                ("paketli_arka", "Photos - AQL COPY", "O20"),
             ]
 
-            for anahtar, hedef_kelime, hucre in resim_haritasi:
+            for anahtar, sekme_adi, hucre in resim_haritasi:
                 resim_yolu = secilen_resimler[anahtar]
                 if resim_yolu and os.path.exists(resim_yolu):
-                    gercek_sekme_adi = sekme_bul(hedef_kelime)
-                    if gercek_sekme_adi:
-                        ws_resim = wb[gercek_sekme_adi]
-                        img = OpenpyxlImage(resim_yolu)
-                        img.width, img.height = (240, 320) if "MEASUREMENT" in gercek_sekme_adi.upper() else (280, 210)
-                        ws_resim.add_image(img, hucre)
+                    ws_resim = wb[sekme_adi]
+                    img = OpenpyxlImage(resim_yolu)
+                    img.width, img.height = (240, 320) if "MEASUREMENT" in sekme_adi else (280, 210)
+                    ws_resim.add_image(img, hucre)
 
             wb.save(cikti_yolu)
-            bilgi_notu.value = f"Başarılı! Rapor kaydedildi.\nDosya Yolu: {cikti_yolu}"
+            bilgi_notu.value = f"Başarılı! Rapor kaydedildi.\nDosya: {cikti_yolu}"
             bilgi_notu.color = ft.Colors.GREEN_700
         except Exception as ex:
-            bilgi_notu.value = f"Rapor kaydedilirken hata oluştu: {str(ex)}"
+            bilgi_notu.value = f"Hata: {str(ex)}"
             bilgi_notu.color = ft.Colors.RED_700
         page.update()
 
-    # SAYAÇ VE RESİM PANELİ BİLEŞENLERİ
+    # --- SAYAÇ VE RESİM PANELİ ---
     sayac_paneli = ft.Row([
         ft.Container(content=ft.Column([
             ft.Text("MAJOR HATA", size=14, weight=ft.FontWeight.BOLD),
@@ -212,19 +198,23 @@ def main(page: ft.Page):
     ], spacing=30, alignment=ft.MainAxisAlignment.CENTER)
 
     resim_listesi = ft.Column([
-        ft.Text("Ölçüm Tablosu Fotoğrafları (AQL MEASUREMENT)", weight=ft.FontWeight.BOLD, size=14),
-        resim_secici_butonu("XS Ölçüm Kartı", "olcu_xs"), resim_secici_butonu("S Ölçüm Kartı", "olcu_s"),
+        ft.Text("Ölçüm Tablosu Fotoğrafları", weight=ft.FontWeight.BOLD, size=14),
+        resim_secici_butonu("XS Ölçüm Kartı", "olcu_xs"),
+        resim_secici_butonu("S Ölçüm Kartı", "olcu_s"),
         ft.Divider(),
-        ft.Text("Genel Teftiş Fotoğrafları (Photos - AQL)", weight=ft.FontWeight.BOLD, size=14),
-        resim_secici_butonu("Minor Hata Görseli", "minor_img"), resim_secici_butonu("Major Hata Görseli", "major_img"),
-        resim_secici_butonu("Ürün Önden Görünüm", "onden"), resim_secici_butonu("Ürün Arkadan Görünüm", "arkadan"),
-        resim_secici_butonu("Paketli Ön Görünüm", "paketli_on"), resim_secici_butonu("Paketli Arka Görünüm", "paketli_arka"),
+        ft.Text("Genel Teftiş Fotoğrafları", weight=ft.FontWeight.BOLD, size=14),
+        resim_secici_butonu("Minor Hata Görseli", "minor_img"),
+        resim_secici_butonu("Major Hata Görseli", "major_img"),
+        resim_secici_butonu("Ürün Önden Görünüm", "onden"),
+        resim_secici_butonu("Ürün Arkadan Görünüm", "arkadan"),
+        resim_secici_butonu("Paketli Ön Görünüm", "paketli_on"),
+        resim_secici_butonu("Paketli Arka Görünüm", "paketli_arka"),
     ], spacing=10)
 
     ekran_2 = ft.Column(controls=[
         ft.Row([ft.IconButton(ft.Icons.ARROW_BACK, on_click=ana_ekrana_don), ft.Text("Hata Sayacı ve Resim Paneli", size=18, weight=ft.FontWeight.BOLD)]),
         ft.Divider(), sayac_paneli, ft.Divider(), resim_listesi, ft.Divider(),
-        ft.Row([ft.ElevatedButton(content=ft.Text("EXCEL RAPORUNU OLUŞTUR", color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.GREEN_700, width=350, height=55, on_click=orjinal_excele_kaydet)], alignment=ft.MainAxisAlignment.CENTER),
+        ft.Row([ft.ElevatedButton(content=ft.Text("EXCEL RAPORUNU OLUŞTUR", color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.GREEN_700, width=350, height=55, on_click=excele_raporu_yaz)], alignment=ft.MainAxisAlignment.CENTER),
         ft.Row([bilgi_notu], alignment=ft.MainAxisAlignment.CENTER)
     ], visible=False)
 
